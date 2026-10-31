@@ -273,17 +273,56 @@ try {
   })()`);
   assert(linkage.suggested && linkage.running && linkage.taskId === linkage.expectedId &&
     linkage.focusLabel === "专注 32 分钟" && linkage.streak >= 1, `Task linkage failed: ${JSON.stringify(linkage)}`);
+  const lifecycleIds = await evaluate(`(() => {
+    const now = Date.now();
+    const base = { tagId: data.tags[0].id, taskId: '', kind: 'parallel', phase: 'focus',
+      elapsed: 0, running: true, createdAt: new Date(now).toISOString(), completedAt: null };
+    const stopwatch = { ...base, id: crypto.randomUUID(), title: '后台正计时', mode: 'stopwatch', targetSeconds: 0,
+      startedAt: now - 10 * 60000 };
+    const countdown = { ...base, id: crypto.randomUUID(), title: '后台倒计时', mode: 'countdown', targetSeconds: 600,
+      startedAt: now - 12 * 60000 };
+    const cycle = { ...base, id: crypto.randomUUID(), title: '后台循环', mode: 'cycle', targetSeconds: 0,
+      startedAt: now - 55 * 60000 };
+    data.activities.push(stopwatch, countdown, cycle);
+    save();
+    return { stopwatch: stopwatch.id, countdown: countdown.id, cycle: cycle.id, deadline: now - 2 * 60000 };
+  })()`);
+  await call("Page.reload");
+  await new Promise((done) => setTimeout(done, 650));
+  const lifecycle = await evaluate(`(() => {
+    const ids = ${JSON.stringify(lifecycleIds)};
+    const stopwatch = data.activities.find((item) => item.id === ids.stopwatch);
+    const countdown = data.activities.find((item) => item.id === ids.countdown);
+    const cycle = data.activities.find((item) => item.id === ids.cycle);
+    const countdownSession = data.sessions.find((item) => item.activityId === ids.countdown);
+    return { running: stopwatch.running, elapsed: activityElapsed(stopwatch),
+      countdownDone: !!countdown.completedAt && !!countdownSession,
+      deadlineError: Math.abs(new Date(countdownSession?.endedAt).getTime() - ids.deadline),
+      cycleRunning: cycle.running, phase: cycle.phase, cycleElapsed: activityElapsed(cycle),
+      cycleSessions: data.sessions.filter((item) => item.activityId === ids.cycle).length };
+  })()`);
+  assert(lifecycle.running && lifecycle.elapsed >= 600 && lifecycle.countdownDone && lifecycle.deadlineError < 5000 &&
+    lifecycle.cycleRunning && lifecycle.phase === 'break' && lifecycle.cycleElapsed >= 300 && lifecycle.cycleSessions === 1,
+    `Timer resume failed: ${JSON.stringify(lifecycle)}`);
+  await call("Page.reload");
+  await new Promise((done) => setTimeout(done, 650));
+  const resumedAgain = await evaluate(`(() => {
+    const ids = ${JSON.stringify(lifecycleIds)};
+    return { running: data.activities.find((item) => item.id === ids.stopwatch).running,
+      cycleSessions: data.sessions.filter((item) => item.activityId === ids.cycle).length };
+  })()`);
+  assert(resumedAgain.running && resumedAgain.cycleSessions === 1, `Timer resume duplicated a session: ${JSON.stringify(resumedAgain)}`);
   let pwa = null;
   if (appUrl.startsWith("http")) {
     pwa = await evaluate(`Promise.race([
       navigator.serviceWorker.ready.then(async () => {
         const keys = await caches.keys(); const key = keys.find((item) => item.startsWith('xushi-app-'));
         return { controlled: !!navigator.serviceWorker.controller, files: key ? (await (await caches.open(key)).keys()).length : 0,
-          cachedIndex: !!(await caches.match('./index.html')) };
+          cachedIndex: !!(await caches.match('./index.html')), cachedScript: !!(await caches.match('./app.js?v=6')) };
       }),
       new Promise((_, reject) => setTimeout(() => reject(new Error('PWA install timed out')), 8000))
     ])`);
-    assert(pwa.files >= 40, `PWA cache failed: ${JSON.stringify(pwa)}`);
+    assert(pwa.files >= 40 && pwa.cachedScript, `PWA cache failed: ${JSON.stringify(pwa)}`);
     await call("Network.enable");
     await call("Network.emulateNetworkConditions", { offline: true, latency: 0, downloadThroughput: 0, uploadThroughput: 0 });
     await call("Page.reload");
@@ -292,7 +331,7 @@ try {
     assert(pwa.offline.options >= 4, `Offline reload failed: ${JSON.stringify(pwa)}`);
     await call("Network.emulateNetworkConditions", { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
   }
-  process.stdout.write(JSON.stringify({ activity, timerModes, todos, health, mood, summary, calendar, settings, persistence, mobile, compactLayouts, migration, linkage, pwa }) + "\n");
+  process.stdout.write(JSON.stringify({ activity, timerModes, todos, health, mood, summary, calendar, settings, persistence, mobile, compactLayouts, migration, linkage, lifecycle, resumedAgain, pwa }) + "\n");
   await call("Browser.close");
 } finally {
   socket?.close();

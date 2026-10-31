@@ -104,9 +104,11 @@ function normalizeData(raw) {
   data.lastWaterPromptAt = Number.isFinite(raw.lastWaterPromptAt) ? raw.lastWaterPromptAt : Date.now();
   data.lastExportAt = typeof raw.lastExportAt === "string" ? raw.lastExportAt : null;
   for (const activity of data.activities) {
-    activity.running = false;
-    activity.startedAt = null;
-    activity.elapsed = Math.max(0, Number(activity.elapsed) || 0);
+    const startedAt = Number(activity.startedAt);
+    activity.running = activity.running === true && !activity.completedAt && Number.isFinite(startedAt) && startedAt > 0;
+    activity.startedAt = activity.running ? startedAt : null;
+    const elapsed = Number(activity.elapsed);
+    activity.elapsed = Number.isFinite(elapsed) ? Math.max(0, elapsed) : 0;
     activity.taskId = typeof activity.taskId === "string" ? activity.taskId : "";
   }
   for (const session of data.sessions) session.taskId = typeof session.taskId === "string" ? session.taskId : "";
@@ -417,12 +419,12 @@ $("#session-list").addEventListener("click", (event) => {
   data.sessions = data.sessions.filter((session) => session.id !== button.dataset.id);
   save(); renderTop(); renderSummary();
 });
-function completeActivity(activity, seconds = activityElapsed(activity)) {
-  if (activity.mode !== "cycle" || activity.phase === "focus") recordSession(activity, activity.mode === "countdown" ? Math.min(seconds, activity.targetSeconds) : seconds);
+function completeActivity(activity, seconds = activityElapsed(activity), endedAt = isoNow()) {
+  if (activity.mode !== "cycle" || activity.phase === "focus") recordSession(activity, activity.mode === "countdown" ? Math.min(seconds, activity.targetSeconds) : seconds, endedAt);
   activity.elapsed = Math.min(seconds, phaseLength(activity) || seconds);
   activity.running = false;
   activity.startedAt = null;
-  activity.completedAt = isoNow();
+  activity.completedAt = endedAt;
   save(); renderActivities(); renderTop(); renderSummary();
 }
 function advanceActivities() {
@@ -430,7 +432,8 @@ function advanceActivities() {
   for (const activity of data.activities) {
     if (!activity.running || activity.completedAt || activity.mode === "stopwatch") continue;
     if (activity.mode === "countdown" && activityElapsed(activity) >= activity.targetSeconds) {
-      completeActivity(activity, activity.targetSeconds);
+      const endedAt = new Date(activity.startedAt + (activity.targetSeconds - activity.elapsed) * 1000).toISOString();
+      completeActivity(activity, activity.targetSeconds, endedAt);
       changed = true;
       continue;
     }
@@ -1253,10 +1256,10 @@ function tick() {
 }
 window.addEventListener("pagehide", () => {
   advanceActivities();
-  data.activities.forEach(pauseActivity);
   save();
 });
 document.addEventListener("visibilitychange", () => { tick(); checkReminders(); });
+window.addEventListener("pageshow", () => { tick(); checkReminders(); });
 renderAll();
 save();
 setInterval(tick, 500);
