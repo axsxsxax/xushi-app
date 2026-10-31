@@ -1,6 +1,6 @@
-const CACHE_NAME = "xushi-app-v4-20261031";
+const CACHE_NAME = "xushi-app-v5-20261031";
 const ASSETS = [
-  "./index.html", "./styles.css", "./app.js", "./manifest.webmanifest",
+  "./index.html", "./styles.css", "./theme.css", "./sea-garden.svg", "./app.js", "./manifest.webmanifest",
   "./app-icon-180.png", "./app-icon-192.png", "./app-icon-512.png",
   "./vendor/ical.min.js",
   ...[

@@ -3,18 +3,18 @@ Add-Type -AssemblyName System.Drawing
 $canvas = [System.Drawing.Bitmap]::new(512, 512)
 $graphics = [System.Drawing.Graphics]::FromImage($canvas)
 $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-$graphics.Clear([System.Drawing.ColorTranslator]::FromHtml('#0b75a7'))
+$graphics.Clear([System.Drawing.ColorTranslator]::FromHtml('#dff3f7'))
 
 function New-Brush([string]$hex) {
   return [System.Drawing.SolidBrush]::new([System.Drawing.ColorTranslator]::FromHtml($hex))
 }
 
-$waveBrush = New-Brush '#075b8c'
-$deepBrush = New-Brush '#064a78'
-$fishBrush = New-Brush '#ffca83'
-$finBrush = New-Brush '#ffb76d'
-$eyeBrush = New-Brush '#143e59'
-$bubbleBrush = New-Brush '#bce9f4'
+$waveBrush = New-Brush '#b9e1ea'
+$deepBrush = New-Brush '#a7d3de'
+$fishBrush = New-Brush '#f3b8ca'
+$finBrush = New-Brush '#e99fb9'
+$eyeBrush = New-Brush '#456273'
+$bubbleBrush = New-Brush '#fffaf8'
 
 $graphics.FillPolygon($waveBrush, [System.Drawing.PointF[]]@(
   [System.Drawing.PointF]::new(0, 333), [System.Drawing.PointF]::new(100, 318),
@@ -44,7 +44,7 @@ $graphics.FillPolygon($finBrush, [System.Drawing.PointF[]]@(
 ))
 $graphics.FillEllipse($eyeBrush, 304, 237, 24, 24)
 $graphics.FillEllipse([System.Drawing.Brushes]::White, 312, 242, 8, 8)
-$mouthPen = [System.Drawing.Pen]::new([System.Drawing.ColorTranslator]::FromHtml('#143e59'), 7)
+$mouthPen = [System.Drawing.Pen]::new([System.Drawing.ColorTranslator]::FromHtml('#456273'), 7)
 $mouthPen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
 $mouthPen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
 $graphics.DrawArc($mouthPen, 324, 273, 43, 25, 10, 160)

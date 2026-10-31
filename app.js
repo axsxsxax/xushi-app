@@ -2,10 +2,10 @@ const STORAGE_KEY = "xushi-app-v3";
 const OLD_STORAGE_KEY = "xushi-todo-v2";
 const $ = (selector) => document.querySelector(selector);
 const DEFAULT_TAGS = [
-  { id: "work", name: "工作", color: "#3189b5" },
-  { id: "study", name: "学习", color: "#6979c6" },
-  { id: "life", name: "生活", color: "#e38d68" },
-  { id: "other", name: "其他", color: "#6cae98" },
+  { id: "work", name: "工作", color: "#70b4ca" },
+  { id: "study", name: "学习", color: "#aaa7d7" },
+  { id: "life", name: "生活", color: "#e6a6b8" },
+  { id: "other", name: "其他", color: "#91ba9d" },
 ];
 const QUADRANTS = ["urgent-important", "noturgent-important", "urgent-notimportant", "noturgent-notimportant"];
 const QUADRANT_NAMES = { "urgent-important": "紧急且重要", "noturgent-important": "重要不紧急", "urgent-notimportant": "紧急不重要", "noturgent-notimportant": "不重要不紧急" };
@@ -28,6 +28,10 @@ function dayKey(input = new Date()) {
 function localDateTime(input) {
   const date = new Date(input);
   return Number.isNaN(date.getTime()) ? "" : `${date.getMonth() + 1}月${date.getDate()}日 ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+function localInputDateTime(input = new Date()) {
+  const date = input instanceof Date ? input : new Date(input);
+  return `${dayKey(date)}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 function secondsText(seconds) {
   const value = Math.max(0, Math.floor(seconds));
@@ -62,7 +66,7 @@ function freshData() {
   return {
     version: 3, tags: DEFAULT_TAGS.map((tag) => ({ ...tag })), activities: [], sessions: [], tasks: [],
     body: [], meals: [], exercises: [], periods: [], moods: [], events: [], reviews: [], water: [],
-    settings: { focusMinutes: 50, breakMinutes: 10, waterGoal: 2000, waterCup: 250,
+    settings: { focusMinutes: 50, breakMinutes: 10, heightCm: null, waterGoal: 2000, waterCup: 250,
       waterInterval: 90, waterRemind: true },
     lastWaterPromptAt: Date.now(), lastExportAt: null,
   };
@@ -76,7 +80,7 @@ function normalizeData(raw) {
     activities: (item) => typeof item.id === "string" && typeof item.title === "string" && typeof item.createdAt === "string" && ["stopwatch", "countdown", "cycle"].includes(item.mode) && ["solo", "parallel"].includes(item.kind),
     sessions: (item) => typeof item.id === "string" && typeof item.endedAt === "string" && Number.isFinite(item.seconds) && item.seconds > 0,
     tasks: (item) => typeof item.id === "string" && typeof item.title === "string" && typeof item.createdAt === "string" && QUADRANTS.includes(item.quadrant),
-    body: (item) => typeof item.id === "string" && typeof item.date === "string" && Number.isFinite(item.height) && Number.isFinite(item.weight),
+    body: (item) => typeof item.id === "string" && typeof item.date === "string" && (item.height === null || Number.isFinite(item.height)) && Number.isFinite(item.weight),
     meals: (item) => typeof item.id === "string" && typeof item.date === "string" && typeof item.text === "string",
     exercises: (item) => typeof item.id === "string" && typeof item.date === "string" && typeof item.name === "string" && Number.isFinite(item.minutes),
     periods: (item) => typeof item.id === "string" && typeof item.start === "string" && typeof item.end === "string",
@@ -93,6 +97,9 @@ function normalizeData(raw) {
     const value = Number(raw.settings?.[key]);
     if (Number.isInteger(value) && value >= min && value <= max) data.settings[key] = value;
   }
+  const height = Number(raw.settings?.heightCm);
+  data.settings.heightCm = height >= 50 && height <= 250 ? height :
+    [...data.body].filter((item) => Number.isFinite(item.height)).sort((a, b) => a.date.localeCompare(b.date)).at(-1)?.height || null;
   data.settings.waterRemind = raw.settings?.waterRemind !== false;
   data.lastWaterPromptAt = Number.isFinite(raw.lastWaterPromptAt) ? raw.lastWaterPromptAt : Date.now();
   data.lastExportAt = typeof raw.lastExportAt === "string" ? raw.lastExportAt : null;
@@ -273,10 +280,13 @@ document.querySelectorAll(".nav-button").forEach((button) => button.addEventList
 
 function renderTags() {
   const current = $("#activity-tag").value;
+  const manualCurrent = $("#manual-tag").value;
   const options = document.createDocumentFragment();
   for (const tag of data.tags) options.append(new Option(tag.name, tag.id));
   $("#activity-tag").replaceChildren(options);
+  $("#manual-tag").replaceChildren(...data.tags.map((tag) => new Option(tag.name, tag.id)));
   if (data.tags.some((tag) => tag.id === current)) $("#activity-tag").value = current;
+  if (data.tags.some((tag) => tag.id === manualCurrent)) $("#manual-tag").value = manualCurrent;
   const list = document.createDocumentFragment();
   for (const tag of data.tags) {
     const chip = make("span", "tag-chip");
@@ -289,11 +299,15 @@ function renderTags() {
 }
 function renderActivityTasks() {
   const current = $("#activity-task").value;
+  const manualCurrent = $("#manual-task").value;
   const options = document.createDocumentFragment();
   options.append(new Option("不关联待办", ""));
   for (const task of data.tasks.filter((item) => !item.completed)) options.append(new Option(task.title, task.id));
   $("#activity-task").replaceChildren(options);
   if (data.tasks.some((task) => task.id === current && !task.completed)) $("#activity-task").value = current;
+  $("#manual-task").replaceChildren(new Option("不关联待办", ""),
+    ...data.tasks.map((task) => new Option(task.title, task.id)));
+  if (data.tasks.some((task) => task.id === manualCurrent)) $("#manual-task").value = manualCurrent;
 }
 $("#activity-task").addEventListener("change", () => {
   const task = taskFor($("#activity-task").value);
@@ -345,7 +359,8 @@ function pauseActivity(activity) {
 function recordSession(activity, seconds, endedAt = isoNow()) {
   if (seconds < 1) return;
   data.sessions.push({ id: uid(), activityId: activity.id, title: activity.title, tagId: activity.tagId,
-    tagName: tagName(activity.tagId), taskId: activity.taskId || "", seconds: Math.round(seconds), endedAt });
+    tagName: tagName(activity.tagId), taskId: activity.taskId || "", seconds: Math.round(seconds),
+    startedAt: new Date(new Date(endedAt).getTime() - seconds * 1000).toISOString(), endedAt });
 }
 function renderSessions() {
   const selected = $("#session-filter").value || "all";
@@ -362,8 +377,10 @@ function renderSessions() {
   for (const session of sessions) {
     const row = make("div", "record-row");
     const main = make("div", "record-row-main");
-    main.append(make("strong", "", `${session.title || "专注记录"} · ${tagName(session.tagId, session.tagName || "未分类")}`),
-      make("span", "", localDateTime(session.endedAt)));
+    const endTime = new Date(session.endedAt).getTime();
+    const startedAt = session.startedAt || (Number.isFinite(endTime) ? new Date(endTime - session.seconds * 1000).toISOString() : "");
+    main.append(make("strong", "", `${session.title || "专注记录"} · ${tagName(session.tagId, session.tagName || "未分类")}${session.manual ? " · 补记" : ""}`),
+      make("span", "", `${localDateTime(startedAt)} 至 ${localDateTime(session.endedAt)}`));
     row.append(main, make("strong", "record-duration", secondsText(session.seconds)),
       iconButton("trash-2", "删除计时记录", "delete-session", session.id));
     fragment.append(row);
@@ -372,6 +389,28 @@ function renderSessions() {
   if (!sessions.length) $("#session-list").append(make("p", "empty-text", data.sessions.length ? "没有这个标签的记录" : "完成计时后，记录会显示在这里"));
 }
 $("#session-filter").addEventListener("change", renderSessions);
+function resetManualSessionTimes() {
+  const now = new Date();
+  $("#manual-end").value = localInputDateTime(now);
+  $("#manual-start").value = localInputDateTime(new Date(now.getTime() - 30 * 60000));
+}
+resetManualSessionTimes();
+$("#manual-session-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const title = $("#manual-title").value.trim();
+  const start = new Date($("#manual-start").value);
+  const end = new Date($("#manual-end").value);
+  const seconds = Math.round((end.getTime() - start.getTime()) / 1000);
+  if (!title) { toast("请填写做了什么"); return; }
+  if (!Number.isFinite(seconds) || seconds < 60 || seconds > 86400) { toast("补记时长需在 1 分钟到 24 小时之间"); return; }
+  if (end.getTime() > Date.now() + 60000) { toast("结束时间不能晚于现在"); return; }
+  const tagId = $("#manual-tag").value;
+  data.sessions.push({ id: uid(), activityId: "", title, tagId, tagName: tagName(tagId),
+    taskId: $("#manual-task").value, seconds, startedAt: start.toISOString(), endedAt: end.toISOString(), manual: true });
+  $("#manual-session-form").reset();
+  resetManualSessionTimes();
+  save(); renderTop(); renderSummary(); toast("这段时间已补记");
+});
 $("#session-list").addEventListener("click", (event) => {
   const button = event.target.closest("button[data-action='delete-session']");
   if (!button || !confirm("确定删除这条计时记录吗？")) return;
@@ -693,17 +732,81 @@ function renderRecordList(selector, items, describe) {
   }
   container.replaceChildren(fragment);
 }
+function renderWeightChart() {
+  const container = $("#weight-chart");
+  const records = [...data.body].sort((a, b) => a.date.localeCompare(b.date));
+  const latest = records.at(-1);
+  $("#body-latest").textContent = latest ? `最近 ${latest.weight} kg` : "";
+  if (!records.length) {
+    container.setAttribute("aria-label", "暂无体重记录");
+    container.replaceChildren(make("p", "empty-text", "记录体重后，变化会显示在这里"));
+    return;
+  }
+  container.setAttribute("aria-label", `${records.length} 次体重记录，最近 ${latest.weight} 千克`);
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", "0 0 600 220");
+  svg.setAttribute("aria-hidden", "true");
+  const add = (tag, attributes) => {
+    const element = document.createElementNS(ns, tag);
+    for (const [key, value] of Object.entries(attributes)) element.setAttribute(key, value);
+    svg.append(element);
+    return element;
+  };
+  const weights = records.map((item) => item.weight);
+  const min = Math.floor(Math.min(...weights) - 1);
+  const max = Math.ceil(Math.max(...weights) + 1);
+  const firstTime = new Date(`${records[0].date}T12:00:00`).getTime();
+  const lastTime = new Date(`${latest.date}T12:00:00`).getTime();
+  const points = records.map((item, index) => {
+    const time = new Date(`${item.date}T12:00:00`).getTime();
+    const x = lastTime > firstTime ? 45 + (time - firstTime) / (lastTime - firstTime) * 515 :
+      45 + (records.length === 1 ? .5 : index / (records.length - 1)) * 515;
+    return { x, y: 174 - (item.weight - min) / (max - min) * 135, item };
+  });
+  for (let index = 0; index < 4; index += 1) {
+    const y = 39 + index * 45;
+    add("line", { x1: 45, y1: y, x2: 560, y2: y, class: "weight-grid-line" });
+  }
+  const path = points.map((point, index) => `${index ? "L" : "M"}${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(" ");
+  add("path", { d: `${path} L${points.at(-1).x.toFixed(1)} 174 L${points[0].x.toFixed(1)} 174 Z`, class: "weight-area" });
+  add("path", { d: path, class: "weight-line" });
+  for (const point of points) {
+    const circle = add("circle", { cx: point.x, cy: point.y, r: 5, class: "weight-point" });
+    const label = document.createElementNS(ns, "title");
+    label.textContent = `${point.item.date}：${point.item.weight} kg`;
+    circle.append(label);
+  }
+  for (const [x, y, value, anchor] of [
+    [36, 42, `${max} kg`, "end"], [36, 177, `${min} kg`, "end"],
+    [45, 210, records[0].date.slice(5), "start"], [560, 210, latest.date.slice(5), "end"],
+  ]) {
+    const label = add("text", { x, y, "text-anchor": anchor, class: "weight-chart-label" });
+    label.textContent = value;
+  }
+  container.replaceChildren(svg);
+}
 function renderHealth() {
-  renderRecordList("#body-list", data.body, (item) => [`${item.height} cm · ${item.weight} kg`, item.date]);
+  renderWeightChart();
+  $("#body-height").value = data.settings.heightCm || "";
+  $("#body-height-note").textContent = data.settings.heightCm ? `已保存 ${data.settings.heightCm} cm` : "";
+  renderRecordList("#body-list", data.body, (item) => [`${item.weight} kg${item.height ? ` · 身高 ${item.height} cm` : ""}`, item.date]);
   renderRecordList("#meal-list", data.meals, (item) => [`${item.type} · ${item.text}`, item.date]);
   renderRecordList("#exercise-list", data.exercises, (item) => [`${item.name} · ${item.minutes} 分钟`, item.date]);
   renderRecordList("#period-list", data.periods, (item) => [`${item.start} 至 ${item.end}`, "经期记录"]);
 }
 for (const id of ["body-date", "meal-date", "exercise-date", "period-start", "period-end"]) $(`#${id}`).value = dayKey();
+$("#height-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const height = Number($("#body-height").value);
+  if (!Number.isFinite(height) || height < 50 || height > 250) { toast("请填写 50 到 250 cm 的身高"); return; }
+  data.settings.heightCm = height;
+  save(); renderHealth(); toast("身高已保存");
+});
 $("#body-form").addEventListener("submit", (event) => {
   event.preventDefault();
-  data.body.push({ id: uid(), date: $("#body-date").value, height: Number($("#body-height").value), weight: Number($("#body-weight").value) });
-  save(); renderHealth(); $("#body-form").reset(); $("#body-date").value = dayKey(); toast("身高体重已记录");
+  data.body.push({ id: uid(), date: $("#body-date").value, height: data.settings.heightCm, weight: Number($("#body-weight").value) });
+  save(); renderHealth(); $("#body-form").reset(); $("#body-date").value = dayKey(); toast("体重已记录");
 });
 $("#meal-form").addEventListener("submit", (event) => {
   event.preventDefault();

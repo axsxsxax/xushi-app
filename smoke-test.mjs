@@ -128,13 +128,19 @@ try {
 
   const health = await evaluate(`(() => {
     showView('health');
-    document.querySelector('#body-height').value = '165'; document.querySelector('#body-weight').value = '60'; document.querySelector('#body-form').requestSubmit();
+    document.querySelector('#body-height').value = '165'; document.querySelector('#height-form').requestSubmit();
+    document.querySelector('#body-weight').value = '60'; document.querySelector('#body-form').requestSubmit();
+    const savedHeight = document.querySelector('#body-height').value === '165' && data.settings.heightCm === 165;
+    document.querySelector('#body-date').value = dayKey(new Date(Date.now() - 86400000));
+    document.querySelector('#body-weight').value = '61'; document.querySelector('#body-form').requestSubmit();
     document.querySelector('#meal-text').value = '米饭和蔬菜'; document.querySelector('#meal-form').requestSubmit();
     document.querySelector('#exercise-name').value = '慢跑'; document.querySelector('#exercise-minutes').value = '30'; document.querySelector('#exercise-form').requestSubmit();
     document.querySelector('#period-form').requestSubmit();
-    return [data.body.length, data.meals.length, data.exercises.length, data.periods.length];
+    return { counts: [data.body.length, data.meals.length, data.exercises.length, data.periods.length],
+      savedHeight, chartPoints: document.querySelectorAll('#weight-chart .weight-point').length };
   })()`);
-  assert(health.every((count) => count === 1), `Health failed: ${health}`);
+  assert(health.counts.join(',') === '2,1,1,1' && health.savedHeight && health.chartPoints === 2,
+    `Health failed: ${JSON.stringify(health)}`);
 
   const mood = await evaluate(`(() => {
     showView('mood');
@@ -173,6 +179,25 @@ try {
   assert(calendar.count === 5 && calendar.imported === 1 && calendar.repeated === 3 && calendar.duplicate === 0,
     `Calendar failed: ${JSON.stringify(calendar)}`);
 
+  const manualSession = await evaluate(`(() => {
+    showView('timer');
+    document.querySelector('#manual-title').value = '补记阅读';
+    document.querySelector('#manual-tag').value = 'study';
+    document.querySelector('#manual-task').value = data.tasks[0].id;
+    document.querySelector('#manual-start').value = localInputDateTime(new Date(Date.now() - 30 * 60000));
+    document.querySelector('#manual-end').value = localInputDateTime();
+    document.querySelector('#manual-session-form').requestSubmit();
+    const session = data.sessions.at(-1);
+    document.querySelector('#manual-start').value = localInputDateTime();
+    document.querySelector('#manual-end').value = localInputDateTime(new Date(Date.now() - 30 * 60000));
+    document.querySelector('#manual-title').value = '无效时间';
+    document.querySelector('#manual-session-form').requestSubmit();
+    return { manual: session.manual, seconds: session.seconds, linked: session.taskId === data.tasks[0].id,
+      fish: document.querySelectorAll('#ocean-main .fish').length, rejectsReversed: data.sessions.length === 4 };
+  })()`);
+  assert(manualSession.manual && manualSession.seconds === 1800 && manualSession.linked && manualSession.fish === 4 && manualSession.rejectsReversed,
+    `Manual session failed: ${JSON.stringify(manualSession)}`);
+
   const settings = await evaluate(`(() => {
     showView('settings');
     document.querySelector('#setting-water-goal').value = '2500';
@@ -183,7 +208,7 @@ try {
   await call("Page.reload");
   await new Promise((done) => setTimeout(done, 500));
   const persistence = await evaluate("({tasks:data.tasks.length,sessions:data.sessions.length,events:data.events.length,moods:data.moods.length})");
-  assert(persistence.tasks === 1 && persistence.sessions === 3 && persistence.events === 5 && persistence.moods === 1,
+  assert(persistence.tasks === 1 && persistence.sessions === 4 && persistence.events === 5 && persistence.moods === 1,
     `Persistence failed: ${JSON.stringify(persistence)}`);
 
   await call("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
@@ -191,15 +216,35 @@ try {
     const result = {};
     for (const view of ['timer','todos','health','mood','summary','calendar','settings']) {
       showView(view);
-      result[view] = { width: innerWidth, scrollWidth: document.documentElement.scrollWidth };
+      const controls = [...document.querySelectorAll('#view-' + view + ' input:not([type=radio]):not([type=checkbox]):not([type=color]):not([type=file]), #view-' + view + ' select, #view-' + view + ' textarea')];
+      result[view] = { width: innerWidth, scrollWidth: document.documentElement.scrollWidth,
+        minInputFont: Math.min(...controls.map((item) => parseFloat(getComputedStyle(item).fontSize))) };
     }
     showView('timer');
     return result;
   })()`);
-  for (const [view, size] of Object.entries(mobile)) assert(size.width === 390 && size.scrollWidth <= 390, `Mobile overflow in ${view}: ${JSON.stringify(size)}`);
+  for (const [view, size] of Object.entries(mobile)) assert(size.width === 390 && size.scrollWidth <= 390 && size.minInputFont >= 16,
+    `Mobile layout or input size failed in ${view}: ${JSON.stringify(size)}`);
+  const compactLayouts = {};
+  for (const width of [320, 430]) {
+    await call("Emulation.setDeviceMetricsOverride", { width, height: 844, deviceScaleFactor: 1, mobile: true });
+    compactLayouts[width] = await evaluate(`(() => {
+      const result = {};
+      for (const view of ['timer','todos','health','mood','summary','calendar','settings']) {
+        showView(view);
+        result[view] = document.documentElement.scrollWidth;
+      }
+      return result;
+    })()`);
+    for (const [view, scrollWidth] of Object.entries(compactLayouts[width]))
+      assert(scrollWidth <= width, `Overflow at ${width}px in ${view}: ${scrollWidth}`);
+  }
+  await call("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
   await screenshot("preview-mobile-v3.png");
   await evaluate("showView('todos')");
   await screenshot("preview-todos-mobile-v3.png");
+  await evaluate("showView('health')");
+  await screenshot("preview-health-mobile-v3.png");
   await evaluate("showView('calendar')");
   await screenshot("preview-calendar-mobile-v3.png");
   const migration = await evaluate(`(() => {
@@ -227,7 +272,7 @@ try {
       focusLabel: document.querySelector('.todo-focus-time')?.textContent, streak: actionStreak() };
   })()`);
   assert(linkage.suggested && linkage.running && linkage.taskId === linkage.expectedId &&
-    linkage.focusLabel?.includes("2 分钟") && linkage.streak >= 1, `Task linkage failed: ${JSON.stringify(linkage)}`);
+    linkage.focusLabel === "专注 32 分钟" && linkage.streak >= 1, `Task linkage failed: ${JSON.stringify(linkage)}`);
   let pwa = null;
   if (appUrl.startsWith("http")) {
     pwa = await evaluate(`Promise.race([
@@ -247,7 +292,7 @@ try {
     assert(pwa.offline.options >= 4, `Offline reload failed: ${JSON.stringify(pwa)}`);
     await call("Network.emulateNetworkConditions", { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
   }
-  process.stdout.write(JSON.stringify({ activity, timerModes, todos, health, mood, summary, calendar, settings, persistence, mobile, migration, linkage, pwa }) + "\n");
+  process.stdout.write(JSON.stringify({ activity, timerModes, todos, health, mood, summary, calendar, settings, persistence, mobile, compactLayouts, migration, linkage, pwa }) + "\n");
   await call("Browser.close");
 } finally {
   socket?.close();

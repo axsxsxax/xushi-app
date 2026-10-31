@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#eaf5fb">
+  <meta name="theme-color" content="#e8f7fb">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="序时">
@@ -11,6 +11,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="app-icon-180.png">
   <title>序时 · 计时活动</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="theme.css">
   <script src="vendor/ical.min.js" defer></script>
   <script src="app.js" defer></script>
 </head>
@@ -52,6 +53,14 @@
             </section>
             <section class="activity-column" aria-labelledby="activities-title"><div class="section-title"><h2 id="activities-title">活动列表</h2><span id="activity-count"></span></div><div id="activity-list" class="activity-list"></div><p id="activity-empty" class="empty-text">今天想从哪件事开始？</p></section>
           </div>
+          <section class="manual-session" aria-labelledby="manual-session-title"><div class="section-title"><h2 id="manual-session-title">补记一段时间</h2></div><form id="manual-session-form" class="manual-session-form">
+            <label>做了什么<input id="manual-title" type="text" maxlength="80" placeholder="例如：阅读、散步" required></label>
+            <label>标签<select id="manual-tag"></select></label>
+            <label>关联待办<select id="manual-task"><option value="">不关联待办</option></select></label>
+            <label>开始时间<input id="manual-start" type="datetime-local" required></label>
+            <label>结束时间<input id="manual-end" type="datetime-local" required></label>
+            <button class="primary-button" type="submit"><img src="icons/plus.svg" alt="">保存补记</button>
+          </form></section>
           <section class="timer-history"><div class="section-title"><h2>计时记录</h2><select id="session-filter" aria-label="按标签筛选计时记录"></select></div><div id="session-list" class="record-list"></div></section>
         </section>
 
@@ -75,7 +84,7 @@
 
         <section id="view-health" class="view" aria-labelledby="health-title"><div class="page-heading"><div><p class="eyebrow">WELLBEING</p><h1 id="health-title">运动健康</h1></div></div>
           <div class="health-grid">
-            <section class="health-section"><div class="section-title"><h2>身高与体重</h2></div><form id="body-form" class="compact-form"><label>日期<input id="body-date" type="date" required></label><label>身高 cm<input id="body-height" type="number" min="50" max="250" step="0.1" required></label><label>体重 kg<input id="body-weight" type="number" min="10" max="500" step="0.1" required></label><button class="primary-button" type="submit">保存记录</button></form><div id="body-list" class="record-list"></div></section>
+            <section class="health-section body-section"><div class="section-title"><h2>体重变化</h2><span id="body-latest"></span></div><div id="weight-chart" class="weight-chart" role="img" aria-label="历次体重曲线"></div><form id="height-form" class="compact-form height-form"><label>我的身高 cm<input id="body-height" type="number" min="50" max="250" step="0.1" placeholder="只需设置一次" required></label><button class="secondary-button" type="submit">保存身高</button><span id="body-height-note" class="small-note"></span></form><form id="body-form" class="compact-form"><label>日期<input id="body-date" type="date" required></label><label>体重 kg<input id="body-weight" type="number" min="10" max="500" step="0.1" required></label><button class="primary-button" type="submit">记录体重</button></form><div id="body-list" class="record-list"></div></section>
             <section class="health-section"><div class="section-title"><h2>每日饮食</h2></div><form id="meal-form" class="compact-form"><label>日期<input id="meal-date" type="date" required></label><label>餐别<select id="meal-type"><option>早餐</option><option>午餐</option><option>晚餐</option><option>加餐</option></select></label><label class="grow-field">吃了什么<input id="meal-text" type="text" maxlength="160" required></label><button class="primary-button" type="submit">记录饮食</button></form><div id="meal-list" class="record-list"></div></section>
             <section class="health-section"><div class="section-title"><h2>运动记录</h2></div><form id="exercise-form" class="compact-form"><label>日期<input id="exercise-date" type="date" required></label><label class="grow-field">运动项目<input id="exercise-name" type="text" maxlength="80" required></label><label>分钟<input id="exercise-minutes" type="number" min="1" max="1440" required></label><button class="primary-button" type="submit">记录运动</button></form><div id="exercise-list" class="record-list"></div></section>
             <section class="health-section"><div class="section-title"><h2>经期记录</h2></div><form id="period-form" class="compact-form"><label>开始日期<input id="period-start" type="date" required></label><label>结束日期<input id="period-end" type="date" required></label><button class="primary-button" type="submit">保存经期</button></form><div id="period-list" class="record-list"></div></section>
@@ -101,7 +110,7 @@
         <section id="view-settings" class="view" aria-labelledby="settings-title"><div class="page-heading"><div><p class="eyebrow">PREFERENCES</p><h1 id="settings-title">设置</h1></div></div>
           <div class="settings-sections"><section class="settings-section"><div class="section-title"><h2>专注与休息</h2></div><div class="settings-grid"><label>专注分钟<input id="setting-focus" type="number" min="1" max="180"></label><label>休息分钟<input id="setting-break" type="number" min="1" max="60"></label></div></section>
             <section class="settings-section"><div class="section-title"><h2>喝水提醒</h2></div><div class="settings-grid"><label>每日目标 ml<input id="setting-water-goal" type="number" min="100" max="10000" step="50"></label><label>每杯 ml<input id="setting-water-cup" type="number" min="50" max="2000" step="10"></label><label>提醒间隔 分钟<input id="setting-water-interval" type="number" min="15" max="480"></label><label class="checkbox-label"><input id="setting-water-remind" type="checkbox">开启提醒</label></div></section>
-            <section class="settings-section"><div class="section-title"><h2>通知与数据</h2></div><div class="settings-actions"><button id="notification-button" class="secondary-button" type="button"><img src="icons/bell.svg" alt="">允许浏览器通知</button><button id="export-button" class="secondary-button" type="button"><img src="icons/download.svg" alt="">导出备份</button><label class="secondary-button import-label"><img src="icons/upload.svg" alt="">导入备份<input id="backup-import" type="file" accept=".json,application/json" hidden></label></div><p id="backup-last" class="small-note"></p><p class="small-note">页面关闭后，浏览器提醒不会继续运行。经期、心情和日记只保存在这台设备的当前浏览器中。</p></section>
+            <section class="settings-section"><div class="section-title"><h2>通知与数据</h2></div><div class="settings-actions"><button id="notification-button" class="secondary-button" type="button"><img src="icons/bell.svg" alt="">允许浏览器通知</button><button id="export-button" class="secondary-button" type="button"><img src="icons/download.svg" alt="">导出备份</button><label class="secondary-button import-label"><img src="icons/upload.svg" alt="">导入备份<input id="backup-import" type="file" accept=".json,application/json" hidden></label></div><p id="backup-last" class="small-note"></p><p class="small-note">记录只保存在当前设备的浏览器中，不会自动上传到 GitHub。导出的备份包含个人记录，请勿公开分享。</p><p class="small-note">页面关闭后，浏览器提醒不会继续运行。</p></section>
             <section class="settings-section"><div class="section-title"><h2>安装到手机</h2></div><div class="settings-actions"><button id="install-button" class="secondary-button" type="button"><img src="icons/download.svg" alt="">添加到主屏幕</button><span id="install-state" class="small-note"></span></div></section>
             <button id="save-settings" class="primary-button settings-save" type="button"><img src="icons/save.svg" alt="">保存设置</button>
           </div>
