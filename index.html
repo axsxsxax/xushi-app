@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#eaf5fb">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="序时">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" sizes="180x180" href="app-icon-180.png">
+  <title>序时 · 计时活动</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="vendor/ical.min.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="主导航">
+      <div class="brand"><span class="brand-symbol">◒</span><span>序时</span></div>
+      <nav class="nav-list">
+        <button class="nav-button active" type="button" data-view="timer"><img src="icons/timer.svg" alt="">计时活动</button>
+        <button class="nav-button" type="button" data-view="todos"><img src="icons/list-todo.svg" alt="">待办事项</button>
+        <button class="nav-button" type="button" data-view="health"><img src="icons/activity.svg" alt="">运动健康</button>
+        <button class="nav-button" type="button" data-view="mood"><img src="icons/smile.svg" alt="">心情日记</button>
+        <button class="nav-button" type="button" data-view="summary"><img src="icons/chart-pie.svg" alt="">统计总结</button>
+        <button class="nav-button" type="button" data-view="calendar"><img src="icons/calendar-days.svg" alt="">日历</button>
+        <button class="nav-button" type="button" data-view="settings"><img src="icons/settings.svg" alt="">设置</button>
+      </nav>
+      <div class="sidebar-foot"><span id="sidebar-date"></span><span>把今天过得有声有色</span></div>
+    </aside>
+
+    <div class="main-column">
+      <header class="topbar"><div><span class="mobile-brand">序时</span><span id="topbar-title">计时活动</span></div><span id="topbar-date"></span></header>
+      <main class="content">
+        <section id="view-timer" class="view active" aria-labelledby="timer-title">
+          <div class="page-heading"><div><p class="eyebrow">FOCUS & FLOW</p><h1 id="timer-title">计时活动</h1></div><div id="timer-today" class="heading-stat"></div></div>
+          <div class="ocean-band"><div class="ocean-top"><div><strong>我的海洋</strong><span id="ocean-count"></span></div><span class="ocean-time" id="ocean-time"></span></div><div id="ocean-main" class="ocean-scene" aria-label="完成活动获得的小鱼和水母"></div></div>
+          <section class="today-route" aria-labelledby="route-title"><div class="route-heading"><h2 id="route-title">今日航线</h2><span id="route-streak">连续行动 0 天</span></div><div class="route-main"><div><strong id="route-task-title">今天从哪里开始？</strong><span id="route-reason"></span></div><button id="route-start" class="primary-button" type="button"><img src="icons/play.svg" alt="">开始专注</button></div><div class="route-metrics"><span>今日专注 <strong id="route-focus">0 分钟</strong></span><span>待完成 <strong id="route-open">0 件</strong></span><span>已喝水 <strong id="route-water">0 ml</strong></span></div></section>
+          <div class="two-column timer-layout">
+            <section class="tool-panel" aria-labelledby="activity-form-title"><div class="section-title"><h2 id="activity-form-title">新建计时活动</h2></div>
+              <form id="activity-form" class="stack-form">
+                <label>活动名称<input id="activity-title" type="text" maxlength="80" placeholder="例如：阅读、写作、练习" required></label>
+                <div class="form-row"><label>标签<select id="activity-tag"></select></label><button id="tag-panel-toggle" class="icon-button align-bottom" type="button" title="管理标签" aria-label="管理标签"><img src="icons/plus.svg" alt=""></button></div>
+                <label>关联待办<select id="activity-task"><option value="">不关联待办</option></select></label>
+                <div id="tag-panel" class="tag-panel hidden"><div id="tag-list" class="tag-list"></div><div class="tag-add"><input id="new-tag-name" type="text" maxlength="16" placeholder="新标签名称" aria-label="新标签名称"><input id="new-tag-color" type="color" value="#2798bd" aria-label="标签颜色"><button id="add-tag" class="secondary-button" type="button">添加标签</button></div></div>
+                <div class="form-row"><fieldset class="choice-field"><legend>计时方式</legend><div class="segmented" id="timer-mode-choice"><label><input type="radio" name="timer-mode" value="stopwatch" checked><span>正计时</span></label><label><input type="radio" name="timer-mode" value="countdown"><span>倒计时</span></label><label><input type="radio" name="timer-mode" value="cycle"><span>50 / 10</span></label></div></fieldset></div>
+                <label id="duration-field" class="hidden">倒计时分钟数<input id="activity-duration" type="number" min="1" max="480" value="30"></label>
+                <fieldset class="choice-field"><legend>运行方式</legend><div class="segmented" id="timer-kind-choice"><label><input type="radio" name="timer-kind" value="solo" checked><span>独行</span></label><label><input type="radio" name="timer-kind" value="parallel"><span>并行</span></label></div></fieldset>
+                <button class="primary-button" type="submit"><img src="icons/plus.svg" alt="">创建活动</button>
+              </form>
+            </section>
+            <section class="activity-column" aria-labelledby="activities-title"><div class="section-title"><h2 id="activities-title">活动列表</h2><span id="activity-count"></span></div><div id="activity-list" class="activity-list"></div><p id="activity-empty" class="empty-text">今天想从哪件事开始？</p></section>
+          </div>
+          <section class="timer-history"><div class="section-title"><h2>计时记录</h2><select id="session-filter" aria-label="按标签筛选计时记录"></select></div><div id="session-list" class="record-list"></div></section>
+        </section>
+
+        <section id="view-todos" class="view" aria-labelledby="todos-title">
+          <div class="page-heading"><div><p class="eyebrow">PRIORITIES</p><h1 id="todos-title">待办事项</h1></div><div class="heading-stat"><strong id="completed-today">0</strong><span>今日完成</span></div></div>
+          <div class="water-band"><div class="water-icon"><img src="icons/droplets.svg" alt=""></div><div class="water-copy"><strong>今日喝水</strong><span id="water-progress-text">0 / 2000 ml</span></div><div class="water-meter"><div id="water-meter-fill"></div></div><button id="add-water" class="secondary-button" type="button"><img src="icons/plus.svg" alt="">喝一杯</button><button id="undo-water" class="icon-button" type="button" title="撤销上一杯" aria-label="撤销上一杯"><img src="icons/rotate-ccw.svg" alt=""></button></div>
+          <section class="tool-panel todo-form-panel" aria-labelledby="todo-form-title"><div class="section-title"><h2 id="todo-form-title">新增待办</h2></div><form id="todo-form" class="todo-form">
+            <label>要做的事<input id="todo-title" type="text" maxlength="100" placeholder="写下这件事" required></label>
+            <label>优先级<select id="todo-quadrant"><option value="urgent-important">紧急且重要</option><option value="noturgent-important">重要不紧急</option><option value="urgent-notimportant">紧急不重要</option><option value="noturgent-notimportant">不重要不紧急</option></select></label>
+            <label>截止日期<input id="todo-due" type="date"></label><label>提醒时间<input id="todo-remind" type="datetime-local"></label>
+            <label class="wide-field">备注<input id="todo-note" type="text" maxlength="200" placeholder="可选"></label>
+            <div class="form-actions"><button id="todo-submit" class="primary-button" type="submit">添加待办</button><button id="todo-cancel" class="text-button hidden" type="button">取消编辑</button></div>
+          </form></section>
+          <div class="quadrant-grid">
+            <section class="quadrant q1"><div class="quadrant-head"><span class="priority-dot"></span><div><h2>紧急且重要</h2><span>优先处理</span></div><strong id="count-urgent-important">0</strong></div><ul id="list-urgent-important" class="todo-list"></ul></section>
+            <section class="quadrant q2"><div class="quadrant-head"><span class="priority-dot"></span><div><h2>重要不紧急</h2><span>稳步推进</span></div><strong id="count-noturgent-important">0</strong></div><ul id="list-noturgent-important" class="todo-list"></ul></section>
+            <section class="quadrant q3"><div class="quadrant-head"><span class="priority-dot"></span><div><h2>紧急不重要</h2><span>及时安排</span></div><strong id="count-urgent-notimportant">0</strong></div><ul id="list-urgent-notimportant" class="todo-list"></ul></section>
+            <section class="quadrant q4"><div class="quadrant-head"><span class="priority-dot"></span><div><h2>不重要不紧急</h2><span>有空再做</span></div><strong id="count-noturgent-notimportant">0</strong></div><ul id="list-noturgent-notimportant" class="todo-list"></ul></section>
+          </div>
+        </section>
+
+        <section id="view-health" class="view" aria-labelledby="health-title"><div class="page-heading"><div><p class="eyebrow">WELLBEING</p><h1 id="health-title">运动健康</h1></div></div>
+          <div class="health-grid">
+            <section class="health-section"><div class="section-title"><h2>身高与体重</h2></div><form id="body-form" class="compact-form"><label>日期<input id="body-date" type="date" required></label><label>身高 cm<input id="body-height" type="number" min="50" max="250" step="0.1" required></label><label>体重 kg<input id="body-weight" type="number" min="10" max="500" step="0.1" required></label><button class="primary-button" type="submit">保存记录</button></form><div id="body-list" class="record-list"></div></section>
+            <section class="health-section"><div class="section-title"><h2>每日饮食</h2></div><form id="meal-form" class="compact-form"><label>日期<input id="meal-date" type="date" required></label><label>餐别<select id="meal-type"><option>早餐</option><option>午餐</option><option>晚餐</option><option>加餐</option></select></label><label class="grow-field">吃了什么<input id="meal-text" type="text" maxlength="160" required></label><button class="primary-button" type="submit">记录饮食</button></form><div id="meal-list" class="record-list"></div></section>
+            <section class="health-section"><div class="section-title"><h2>运动记录</h2></div><form id="exercise-form" class="compact-form"><label>日期<input id="exercise-date" type="date" required></label><label class="grow-field">运动项目<input id="exercise-name" type="text" maxlength="80" required></label><label>分钟<input id="exercise-minutes" type="number" min="1" max="1440" required></label><button class="primary-button" type="submit">记录运动</button></form><div id="exercise-list" class="record-list"></div></section>
+            <section class="health-section"><div class="section-title"><h2>经期记录</h2></div><form id="period-form" class="compact-form"><label>开始日期<input id="period-start" type="date" required></label><label>结束日期<input id="period-end" type="date" required></label><button class="primary-button" type="submit">保存经期</button></form><div id="period-list" class="record-list"></div></section>
+          </div>
+        </section>
+
+        <section id="view-mood" class="view" aria-labelledby="mood-title"><div class="page-heading"><div><p class="eyebrow">DAILY NOTES</p><h1 id="mood-title">心情日记</h1></div></div>
+          <div class="mood-layout"><section class="mood-editor"><div class="section-title"><h2>今天的心情</h2><span id="mood-date-label"></span></div><div id="mood-options" class="mood-options" role="group" aria-label="选择心情">
+            <button type="button" data-mood="radiant"><span>🥳</span>特别开心</button><button type="button" data-mood="happy"><span>😊</span>开心</button><button type="button" data-mood="calm"><span>😌</span>平静</button><button type="button" data-mood="tired"><span>😮‍💨</span>疲惫</button><button type="button" data-mood="sad"><span>😔</span>低落</button>
+          </div><p id="mood-message" class="mood-message"></p><label class="diary-label">今天想记下什么<textarea id="diary-text" rows="8" maxlength="3000" placeholder="写给今天的自己……"></textarea></label><button id="save-mood" class="primary-button" type="button"><img src="icons/save.svg" alt="">保存日记</button></section><section class="mood-history"><div class="section-title"><h2>心情足迹</h2></div><div id="mood-history-list" class="record-list"></div></section></div>
+        </section>
+
+        <section id="view-summary" class="view" aria-labelledby="summary-title"><div class="page-heading"><div><p class="eyebrow">REFLECTION</p><h1 id="summary-title">统计总结</h1></div><div class="segmented period-control" role="group" aria-label="统计时间范围"><button class="period-button active" type="button" data-period="week">本周</button><button class="period-button" type="button" data-period="month">本月</button><button class="period-button" type="button" data-period="year">今年</button></div></div>
+          <div class="summary-grid"><section class="summary-section"><div class="section-title"><h2>时间分布</h2><span id="summary-total"></span></div><div class="pie-layout"><div id="time-pie" class="time-pie" role="img" aria-label="各标签专注时间饼图"></div><div id="pie-legend" class="pie-legend"></div></div></section><section class="summary-section"><div class="section-title"><h2>时间趋势</h2></div><div id="trend-chart" class="trend-chart"></div></section></div>
+          <div class="summary-grid lower-summary"><section class="summary-section"><div class="section-title"><h2>这一段的海洋</h2></div><div id="summary-ocean" class="ocean-scene small-ocean"></div><p id="creature-summary" class="metric-line"></p></section><section class="summary-section"><div class="section-title"><h2>心情概览</h2></div><div id="mood-summary" class="mood-summary"></div><p id="todo-summary" class="metric-line"></p><div id="summary-todos" class="summary-todos"></div></section></div>
+          <section class="review-section"><div class="section-title"><h2>写一段总结</h2><span id="review-period"></span></div><textarea id="review-text" rows="5" maxlength="3000" placeholder="回顾这段时间的收获与感受……"></textarea><button id="save-review" class="primary-button" type="button"><img src="icons/save.svg" alt="">保存总结</button></section>
+        </section>
+
+        <section id="view-calendar" class="view" aria-labelledby="calendar-title"><div class="page-heading"><div><p class="eyebrow">PLAN AHEAD</p><h1 id="calendar-title">日历</h1></div><label class="secondary-button import-label"><img src="icons/upload.svg" alt="">导入 .ics<input id="ics-import" type="file" accept=".ics,text/calendar" hidden></label></div>
+          <div class="calendar-layout"><section class="calendar-main"><div class="calendar-toolbar"><button id="calendar-prev" class="icon-button" type="button" title="上个月" aria-label="上个月"><img src="icons/chevron-left.svg" alt=""></button><h2 id="calendar-month"></h2><button id="calendar-next" class="icon-button" type="button" title="下个月" aria-label="下个月"><img src="icons/chevron-right.svg" alt=""></button><button id="calendar-today" class="text-button" type="button">今天</button></div><div class="weekday-row"><span>周一</span><span>周二</span><span>周三</span><span>周四</span><span>周五</span><span>周六</span><span>周日</span></div><div id="calendar-grid" class="calendar-grid"></div></section><aside class="calendar-side"><div class="section-title"><h2 id="selected-day-title"></h2></div><div id="day-events" class="record-list"></div><form id="event-form" class="stack-form"><h3>添加日程</h3><label>名称<input id="event-title" type="text" maxlength="100" required></label><label>日期<input id="event-date" type="date" required></label><div class="form-row"><label>开始<input id="event-start" type="time"></label><label>结束<input id="event-end" type="time"></label></div><label>备注<input id="event-note" type="text" maxlength="200"></label><button class="primary-button" type="submit"><img src="icons/plus.svg" alt="">添加日程</button></form></aside></div>
+        </section>
+
+        <section id="view-settings" class="view" aria-labelledby="settings-title"><div class="page-heading"><div><p class="eyebrow">PREFERENCES</p><h1 id="settings-title">设置</h1></div></div>
+          <div class="settings-sections"><section class="settings-section"><div class="section-title"><h2>专注与休息</h2></div><div class="settings-grid"><label>专注分钟<input id="setting-focus" type="number" min="1" max="180"></label><label>休息分钟<input id="setting-break" type="number" min="1" max="60"></label></div></section>
+            <section class="settings-section"><div class="section-title"><h2>喝水提醒</h2></div><div class="settings-grid"><label>每日目标 ml<input id="setting-water-goal" type="number" min="100" max="10000" step="50"></label><label>每杯 ml<input id="setting-water-cup" type="number" min="50" max="2000" step="10"></label><label>提醒间隔 分钟<input id="setting-water-interval" type="number" min="15" max="480"></label><label class="checkbox-label"><input id="setting-water-remind" type="checkbox">开启提醒</label></div></section>
+            <section class="settings-section"><div class="section-title"><h2>通知与数据</h2></div><div class="settings-actions"><button id="notification-button" class="secondary-button" type="button"><img src="icons/bell.svg" alt="">允许浏览器通知</button><button id="export-button" class="secondary-button" type="button"><img src="icons/download.svg" alt="">导出备份</button><label class="secondary-button import-label"><img src="icons/upload.svg" alt="">导入备份<input id="backup-import" type="file" accept=".json,application/json" hidden></label></div><p id="backup-last" class="small-note"></p><p class="small-note">页面关闭后，浏览器提醒不会继续运行。经期、心情和日记只保存在这台设备的当前浏览器中。</p></section>
+            <section class="settings-section"><div class="section-title"><h2>安装到手机</h2></div><div class="settings-actions"><button id="install-button" class="secondary-button" type="button"><img src="icons/download.svg" alt="">添加到主屏幕</button><span id="install-state" class="small-note"></span></div></section>
+            <button id="save-settings" class="primary-button settings-save" type="button"><img src="icons/save.svg" alt="">保存设置</button>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+  <dialog id="install-dialog" class="install-dialog"><div class="install-dialog-head"><h2>添加到 iPhone 主屏幕</h2><button id="close-install" class="icon-button" type="button" aria-label="关闭" title="关闭"><img src="icons/x.svg" alt=""></button></div><ol><li>用 iPhone 的 Safari 打开这个网址。</li><li>点 Safari 底部的“分享”。</li><li>选择“添加到主屏幕”，然后点“添加”。</li></ol><p>需要 HTTPS 网址；本地文件路径无法安装到 iPhone。已有本地数据可先导出备份，再到 iPhone 上导入。</p></dialog>
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+</body>
+</html>
