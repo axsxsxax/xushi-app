@@ -56,8 +56,13 @@ try {
     else entry.resolveCall(message.result);
   };
   await new Promise((done, fail) => { socket.onopen = done; socket.onerror = fail; });
-  await new Promise((done) => setTimeout(done, 400));
-  assert(await evaluate("document.querySelector('#activity-tag').options.length") === 4, "Initial render failed");
+  let initialOptions = 0;
+  for (let attempt = 0; attempt < 75; attempt += 1) {
+    initialOptions = await evaluate("document.querySelector('#activity-tag')?.options.length || 0");
+    if (initialOptions >= 4) break;
+    await new Promise((done) => setTimeout(done, 200));
+  }
+  assert(initialOptions === 4, `Initial render failed at ${appUrl}`);
 
   const activity = await evaluate(`(() => {
     document.querySelector('#new-tag-name').value = '创作';
